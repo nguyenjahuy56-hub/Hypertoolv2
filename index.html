@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Tool Auto Dự Đoán VIP (kèm Key Lock) - Updated</title>
+    <style>
+        :root { --panel-scale: 1; --accent: #3366ff; --glass: rgba(32,36,45,0.6); --card:#0f1720; }
+        html,body { margin:0;padding:0;height:100%;background:#0d0d12;font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;color:#fff; }
+        /* ---------- ENTRY / DASHBOARD (overlay) ---------- */
+        .overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(180deg, rgba(2,6,12,0.7), rgba(2,6,12,0.85)); z-index:20000; }
+        .panel-card {
+            width:420px; max-width:94vw; border-radius:14px; padding:22px; box-shadow:0 18px 60px rgba(0,0,0,0.7);
+            background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+            border:1px solid rgba(255,255,255,0.04);
+            backdrop-filter: blur(6px);
+        }
+        .panel-card h2 { margin:0 0 6px 0; font-size:18px; text-align:center; }
+        .sub { font-size:13px; color:#bdbdbd; text-align:center; margin-bottom:12px; }
+        .price-grid { display:flex; gap:8px; justify-content:space-between; margin:12px 0; }
+        .price-item { flex:1; background:rgba(255,255,255,0.02); padding:10px;border-radius:8px;text-align:center;font-weight:600; border:1px solid rgba(255,255,255,0.03); }
+        .input-row { display:flex; gap:8px; margin-top:10px; }
+        input[type="text"]{ flex:1;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.45);color:#fff;outline:none; }
+        .btn { padding:10px 14px;border-radius:10px;border:none;cursor:pointer;font-weight:700;background:linear-gradient(180deg,var(--accent),#234ed6); color:#fff; }
+        .btn-ghost { background:transparent;border:1px solid rgba(255,255,255,0.06); color:#ddd; padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:700; }
+        .msg { text-align:center; margin-top:10px; min-height:20px; font-size:14px; }
+        .msg.success { color:#9effc9; }
+        .msg.error { color:#ff9ea6; }
+        .small { font-size:12px;color:#aab; text-align:center; margin-top:8px; }
+
+        /* ---------- TOOL ---------- */
+        #game-frame { width:100%; height:100vh; border: none; display:block; filter:none; }
+        #toggle-tool { position:fixed; top:15px; right:15px; z-index:10000; padding:10px 14px; background:var(--accent); color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold; display:none; }
+        #tool-panel {
+            position:absolute; top:15px; right:15px; width:340px; min-width:240px; min-height:120px;
+            background: rgba(20, 24, 34, 0.95); color: #fff; padding: 0;
+            border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+            border: 1px solid #333; z-index:9999; overflow: hidden;
+            backdrop-filter: blur(10px);
+            resize: both; transform-origin: top right; transform: scale(var(--panel-scale)); touch-action:none;
+            display:none;
+        }
+
+        #tool-panel.horizontal { width: 560px; }
+        #tool-panel.horizontal .pred-grid { grid-template-columns: 1fr 1fr 1fr; }
+        #tool-panel.horizontal .pred-final { grid-column: span 1; }
+
+        @keyframes flash-border {
+            0% { border-color: #ffd700; box-shadow: 0 0 5px rgba(255,215,0,0.2); }
+            50% { border-color: #ff4d4d; box-shadow: 0 0 15px rgba(255,77,77,0.8); }
+            100% { border-color: #ffd700; box-shadow: 0 0 5px rgba(255,215,0,0.2); }
+        }
+        #tool-panel.compact-mode { width: 250px !important; min-width: 200px; }
+        #tool-panel.compact-mode #panel-settings, 
+        #tool-panel.compact-mode .hide-on-compact { display: none !important; }
+        #tool-panel.compact-mode .pred-grid { display: flex; flex-direction: column; gap: 6px; }
+        #tool-panel.compact-mode .pred-box { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 6px; }
+        #tool-panel.compact-mode .pred-title { font-size: 11px; text-align: left; margin: 0; color: #ccc; }
+        #tool-panel.compact-mode .pred-value { font-size: 14px; font-weight: 800; }
+        #tool-panel.compact-mode .pred-final { background: linear-gradient(90deg, #2a2a3a, #1a1e29); border: 1px solid #ffd700; animation: flash-border 1.2s infinite; }
+        
+        #tool-panel.compact-mode .warn-box { font-size: 10px; padding: 6px; margin-bottom: 6px; text-align: center; }
+
+        .panel-header { background: linear-gradient(90deg, #ff3333, var(--accent)); padding:12px; display:flex; justify-content:space-between; align-items:center; gap:8px; border-top-left-radius:12px; border-top-right-radius:12px; }
+        .header-left { display:flex; gap:8px; align-items:center; }
+        .header-title { font-weight:700; text-transform: uppercase; }
+        .expire-badge { font-size:12px; background:rgba(255,255,255,0.05); padding:6px 8px; border-radius:8px; color:#ffd; }
+        .panel-body { padding:12px; overflow:auto; max-height:calc(100% - 56px); display:flex; flex-direction:column; gap:12px; }
+        #btn-auto{ width:100%; padding:12px; background:linear-gradient(180deg,#ffd700,#ffaa00); color:#000; font-weight:700; border:none; border-radius:8px; cursor:pointer; }
+        .select-row { display:flex; gap:8px; align-items:center; }
+        .seq-text{ letter-spacing:3px; font-family:monospace; color:#ffd700; font-weight:700; }
+
+        .info-row { background:#1a1e29;padding:10px;border-radius:8px;font-size:14px;border:1px solid #2a2f3a; }
+        .bar-container { width:100%;height:28px;background:#222;border-radius:12px;display:flex;overflow:hidden;border:1px solid #444; }
+        
+        .bar-tai { height:100%;display:flex;align-items:center;padding-left:10px;background:#ff4d4d;color:#000; transition: width 0.5s ease-in-out; }
+        .bar-xiu { height:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:10px;background:#4da6ff;color:#000; transition: width 0.5s ease-in-out; }
+        
+        .pred-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+        .pred-box{background:#1a1e29;padding:10px;border-radius:8px;text-align:center;border:1px solid #333;}
+        .pred-final{grid-column:span 2;background:linear-gradient(45deg,#2a2a3a,#1a1e29);border:1px solid #ffd700;padding:12px;}
+        .hint-box{text-align:center;font-size:14px;color:#fff;background:rgba(255,255,255,0.03);padding:8px;border-radius:6px;}
+
+        .control-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+        .tiny { font-size:12px; color:#cfcfcf; }
+        .toggle-btn { padding:6px 8px; border-radius:8px; border:1px solid #444; background:transparent; color:#fff; cursor:pointer; }
+        .toggle-btn.active { background:#2a2a3a; border-color:#888; }
+
+        /* Toast Notifications */
+        #toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 100000; pointer-events: none; }
+        .toast { background: rgba(20, 24, 34, 0.95); color: #fff; padding: 12px 20px; border-radius: 8px; border-left: 4px solid #3366ff; box-shadow: 0 4px 12px rgba(0,0,0,0.5); font-size: 14px; animation: toast-in 0.3s forwards, toast-out 0.3s forwards 3s; }
+        .toast.error { border-left-color: #ff4d4d; }
+        .toast.success { border-left-color: #00c853; }
+        @keyframes toast-in { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes toast-out { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100%); } }
+
+        @media (max-width:720px) {
+            #toggle-tool { right:12px; top:12px; }
+            #tool-panel{ left:8px; right:8px; width:auto; min-width:auto; transform-origin:top center; }
+            #tool-panel.horizontal { width: auto; }
+            #tool-panel.horizontal .pred-grid { grid-template-columns: 1fr 1fr; }
+            #tool-panel.horizontal .pred-final { grid-column: span 2; }
+            .panel-body{ padding:10px; max-height:60vh; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toast-container"></div>
+
+    <div id="entryOverlay" class="overlay" role="dialog" aria-modal="true">
+        <div class="panel-card" role="document" aria-labelledby="entryTitle">
+            <h2 id="entryTitle">🔐 Kích hoạt công cụ VIP</h2>
+            <div class="sub">Nhập key để sử dụng. Nếu chưa có key, liên hệ admin. Bảng giá:</div>
+
+            <div class="price-grid" aria-hidden="false">
+                <div class="price-item">
+                    <div style="font-size:14px;color:#ffd;">49k</div>
+                    <div style="font-size:12px;color:#bdbdbd">1 Day</div>
+                </div>
+                <div class="price-item">
+                    <div style="font-size:14px;color:#ffd;">99k</div>
+                    <div style="font-size:12px;color:#bdbdbd">7 Days</div>
+                </div>
+                <div class="price-item">
+                    <div style="font-size:14px;color:#ffd;">199k</div>
+                    <div style="font-size:12px;color:#bdbdbd">30 Days</div>
+                </div>
+            </div>
+
+            <div style="margin-top:6px">
+                <label class="small">Nhập Key</label>
+                <div class="input-row">
+                    <input id="keyInput" type="text" placeholder="Nhập key của bạn..." autocomplete="off" />
+                    <button id="checkBtn" class="btn">KIỂM TRA</button>
+                </div>
+                <div id="entryMsg" class="msg"></div>
+                <div class="small">Lưu ý: key chỉ dùng cho 1 thiết bị. Nếu cần reset, admin sẽ reset HWID.</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashOverlay" class="overlay" style="display:none;">
+        <div class="panel-card">
+            <h2>✅ Key hợp lệ</h2>
+            <div class="sub" id="dashSub">Key của bạn còn: <span id="timeLeft">--:--:--</span></div>
+            
+            <div style="display:flex;flex-direction:column;gap:10px;justify-content:center;margin-top:12px">
+                <button id="btn-lc79" class="btn" style="background:linear-gradient(180deg,#00c853,#00b44a)">MỞ GAME LC79</button>
+                <button id="btn-xd88" class="btn" style="background:linear-gradient(180deg,#f39c12,#d35400)">MỞ GAME XOCDIA88</button>
+                <button id="backBtn" class="btn-ghost" style="border-color:#555;">Thoát / Quay lại</button>
+            </div>
+
+            <div id="dashMsg" class="msg"></div>
+        </div>
+    </div>
+
+    <iframe id="game-frame" src="about:blank" style="width:100%;height:100vh;border:0;display:none;"></iframe>
+    <button id="toggle-tool" onclick="togglePanel()">MỞ TOOL</button>
+
+    <div id="tool-panel" aria-hidden="true">
+        <div class="panel-header" id="panel-header">
+            <div class="header-left">
+                <div class="header-title" id="tool-title">🎯 TOOL DỰ ĐOÁN</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <div id="expireBadge" class="expire-badge" title="Thời hạn key">Key: --</div>
+                <div class="controls">
+                    <button class="icon" title="Thu gọn / Mở rộng" onclick="toggleCompactMode()">⏬</button>
+                    <button class="icon" title="Thu nhỏ" onclick="changeScale(-0.1)">−</button>
+                    <button class="icon" title="Phóng to" onclick="changeScale(0.1)">+</button>
+                    <button class="icon" title="Reset" onclick="resetScale()">R</button>
+                    <button class="icon" id="orientBtn" title="Chuyển ngang / dọc" onclick="toggleOrientation()">↔</button>
+                    <button class="close-btn" onclick="togglePanel()">×</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-body" id="panel-body">
+            <div style="flex: 0 0 100%;">
+                <button id="btn-auto" onclick="fetchApiAndPredict()">🔄 CẬP NHẬT DỮ LIỆU CẦU</button>
+            </div>
+
+            <div id="panel-settings" style="display:flex; flex-direction:column; gap:12px;">
+                <div class="select-row">
+                    <label for="seq-length-select">Độ dài chuỗi:</label>
+                    <select id="seq-length-select">
+                        <option value="11">11</option>
+                        <option value="12">12</option>
+                        <option value="13" selected>13</option>
+                        <option value="14">14</option>
+                    </select>
+                </div>
+
+                <div class="select-row">
+                    <label for="api-source-select">Chọn bàn:</label>
+                    <select id="api-source-select">
+                        <option value="normal">Bàn thường</option>
+                        <option value="md5">Bàn MD5</option>
+                    </select>
+                </div>
+
+                <div class="control-row tiny">
+                    <label><input type="checkbox" id="skip-dice-checkbox" /> Bỏ phân tích xúc xắc</label>
+                    <label><input type="checkbox" id="hide-suggestion-checkbox" /> Ẩn gợi ý đánh</label>
+                </div>
+
+                <div class="control-row tiny">
+                    <label><input type="checkbox" id="auto-refresh-checkbox" /> Tự động cập nhật (10s)</label>
+                    <label><input type="checkbox" id="sound-alert-checkbox" checked /> Âm thanh thông báo</label>
+                </div>
+
+                <button id="btn-advanced-toggle" class="toggle-btn" style="width:100%;">⚙ Nâng cao</button>
+
+                <div id="advanced-section" style="display:none;">
+                    <div class="control-row tiny">
+                        <label><input type="checkbox" id="invert-chain-checkbox" /> Bẻ phân tích chuỗi</label>
+                        <label><input type="checkbox" id="invert-final-checkbox" /> Bẻ kết quả tổng hợp</label>
+                    </div>
+
+                    <div class="control-row">
+                        <button id="btn-invert-all" class="toggle-btn">Đảo cầu (Toàn bộ)</button>
+                        <button id="btn-invert-chain" class="toggle-btn">Đảo cầu (Chỉ chuỗi)</button>
+                        <div style="flex:1"></div>
+                    </div>
+                </div>
+
+                <div class="select-row" style="align-items:flex-start; gap:10px;">
+                    <label style="align-self:flex-start;">Chú thích:</label>
+                    <textarea id="annotation-input" rows="2" style="flex:1; padding:8px; border-radius:8px; background:rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.04); color:#fff; resize:vertical;" placeholder="Thêm chú thích / ghi chú nhanh..."></textarea>
+                </div>
+            </div>
+
+            <div id="result-box" style="flex:1 1 auto;">
+                <div style="text-align:center;color:#888;padding:20px 0;"><i>Chưa có dữ liệu. Hãy bấm cập nhật...</i></div>
+            </div>
+        </div>
+    </div>
+
+<script>
+const KEY_SERVER_URL = "https://vip-key-server.onrender.com";
+window.lastDataString = ""; 
+let selectedGame = 'lc79'; 
+
+/* ---------- TOAST NOTIFICATIONS ---------- */
+function showToast(msg, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = msg;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
+}
+
+/* ---------- SOUND LOGIC ---------- */
+let audioCtx = null;
+function playBeep(type) {
+    try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        if (type === 'warn') {
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.3);
+            gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.3);
+        } else {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime + 0.1);
+            gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.2);
+        }
+    } catch(e) {}
+}
+
+/* ---------- HWID & KEY LOGIC ---------- */
+function getHWID(){
+    let id = localStorage.getItem("device_hw");
+    if(!id){
+        id = "HW-" + Math.random().toString(36).slice(2,10).toUpperCase();
+        localStorage.setItem("device_hw", id);
+    }
+    return id;
+}
+
+const entryOverlay = document.getElementById("entryOverlay");
+const dashOverlay = document.getElementById("dashOverlay");
+const entryMsg = document.getElementById("entryMsg");
+const checkBtn = document.getElementById("checkBtn");
+const keyInput = document.getElementById("keyInput");
+const dashMsg = document.getElementById("dashMsg");
+const timeLeftEl = document.getElementById("timeLeft");
+const backBtn = document.getElementById("backBtn");
+const btnLc79 = document.getElementById("btn-lc79");
+const btnXd88 = document.getElementById("btn-xd88");
+const expireBadge = document.getElementById("expireBadge");
+const gameFrame = document.getElementById("game-frame");
+const toolPanel = document.getElementById("tool-panel");
+const toggleBtn = document.getElementById("toggle-tool");
+const toolTitle = document.getElementById("tool-title");
+
+const invertChainCheckbox = () => document.getElementById('invert-chain-checkbox');
+const invertFinalCheckbox = () => document.getElementById('invert-final-checkbox');
+const skipDiceCheckbox = () => document.getElementById('skip-dice-checkbox');
+const hideSuggestionCheckbox = () => document.getElementById('hide-suggestion-checkbox');
+const annotationInput = () => document.getElementById('annotation-input');
+const btnInvertAll = document.getElementById('btn-invert-all');
+const btnInvertChain = document.getElementById('btn-invert-chain');
+
+function show(el){ el.style.display = ""; }
+function hide(el){ el.style.display = "none"; }
+
+let currentKey = null;
+let expireTimer = null;
+let autoRefreshInterval = null;
+
+/* ---------- AUTO REFRESH EVENT ---------- */
+document.getElementById('auto-refresh-checkbox').addEventListener('change', (e) => {
+    if(e.target.checked) {
+        autoRefreshInterval = setInterval(fetchApiAndPredict, 10000); 
+        showToast('Đã bật tự động lấy dữ liệu (10s)', 'success');
+        fetchApiAndPredict(); 
+    } else {
+        clearInterval(autoRefreshInterval);
+        showToast('Đã tắt tự động lấy dữ liệu', 'success');
+    }
+});
+
+async function fetchKeyInfoFromServer(key){
+    try{
+        const res = await fetch(KEY_SERVER_URL + "/keys");
+        if(!res.ok) return null;
+        const data = await res.json();
+        if(!Array.isArray(data)) return null;
+        return data.find(k => k.key === key) || null;
+    }catch(e){
+        return null;
+    }
+}
+
+function startExpireCountdown(expireTs){
+    if(expireTimer) clearInterval(expireTimer);
+    function update(){
+        const now = Date.now();
+        const diff = expireTs - now;
+        if(diff <= 0){
+            timeLeftEl.innerText = "Đã hết hạn";
+            expireBadge.innerText = "Key: Hết hạn";
+            clearInterval(expireTimer);
+            return;
+        }
+        const totalSec = Math.floor(diff/1000);
+        const days = Math.floor(totalSec / 86400);
+        const hours = Math.floor((totalSec % 86400) / 3600);
+        const mins = Math.floor((totalSec % 3600) / 60);
+        const secs = totalSec % 60;
+        const str = (days>0? days+"d ":"") + String(hours).padStart(2,"0")+":"+
+                    String(mins).padStart(2,"0")+":"+String(secs).padStart(2,"0");
+        timeLeftEl.innerText = str;
+        expireBadge.innerText = "Key expires: " + (days>0? days+"d ":"") + String(hours).padStart(2,"0")+":"+String(mins).padStart(2,"0");
+    }
+    update();
+    expireTimer = setInterval(update, 1000);
+}
+
+async function checkKeyFlow(){
+    const key = (keyInput.value || "").trim();
+    if(!key){ entryMsg.className="msg error"; entryMsg.innerText="Vui lòng nhập key"; return; }
+    entryMsg.className="msg"; entryMsg.innerText="Đang kiểm tra...";
+    checkBtn.disabled = true;
+    try{
+        const hwid = getHWID();
+        const resp = await fetch(KEY_SERVER_URL + "/check-key", {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({ key, hwid })
+        });
+        const data = await resp.json();
+        if(data && data.success){
+            const info = await fetchKeyInfoFromServer(key);
+            if(info && info.expire){
+                currentKey = key;
+                startExpireCountdown(info.expire);
+                entryMsg.className = "msg success";
+                entryMsg.innerText = "✅ Key hợp lệ. Mời bạn chọn game...";
+                setTimeout(()=> {
+                    hide(entryOverlay);
+                    show(dashOverlay);
+                    dashMsg.innerText = "";
+                }, 450);
+            } else {
+                currentKey = key;
+                entryMsg.className = "msg success";
+                entryMsg.innerText = "✅ Key hợp lệ (không có thông tin thời hạn).";
+                setTimeout(()=> {
+                    hide(entryOverlay);
+                    show(dashOverlay);
+                    dashMsg.innerText = "";
+                    timeLeftEl.innerText = "--:--:--";
+                }, 450);
+            }
+        } else {
+            entryMsg.className="msg error";
+            entryMsg.innerText = data && data.message ? ("❌ " + data.message) : "Key không hợp lệ";
+        }
+    }catch(err){
+        entryMsg.className="msg error";
+        entryMsg.innerText = "Lỗi kết nối server";
+    } finally {
+        checkBtn.disabled = false;
+    }
+}
+
+keyInput.addEventListener("keydown", (e) => { if(e.key === "Enter") checkKeyFlow(); });
+checkBtn.addEventListener("click", checkKeyFlow);
+
+backBtn.addEventListener("click", ()=> {
+    hide(dashOverlay);
+    show(entryOverlay);
+    entryMsg.innerText = "";
+    keyInput.value = "";
+});
+
+async function verifyAndOpenGame(gameType) {
+    if(!currentKey){
+        dashMsg.className="msg error"; dashMsg.innerText="Key không hợp lệ, hãy kiểm tra lại";
+        return;
+    }
+    try{
+        const resp = await fetch(KEY_SERVER_URL + "/check-key", {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({ key: currentKey, hwid: getHWID() })
+        });
+        const data = await resp.json();
+        if(!(data && data.success)){
+            dashMsg.className="msg error"; dashMsg.innerText="Key đã bị vô hiệu hoá hoặc dùng trên thiết bị khác";
+            return;
+        }
+    }catch(e){}
+
+    selectedGame = gameType;
+    if(gameType === 'lc79') {
+        gameFrame.src = "https://lc79b.bet/"; 
+        toolTitle.innerText = "🎯 TOOL DỰ ĐOÁN LC79";
+    } else if(gameType === 'xd88') {
+        gameFrame.src = "https://play.xocdia88.green/"; 
+        toolTitle.innerText = "🎯 TOOL DỰ ĐOÁN XOCDIA88";
+    }
+
+    show(gameFrame);
+    hide(dashOverlay);
+    setTimeout(()=>{
+        toolPanel.style.display = "block";
+        toolPanel.setAttribute("aria-hidden","false");
+        toggleBtn.style.display = "none";
+        setPanelKeyInfo();
+        
+        window.lastDataString = ""; 
+    }, 300);
+}
+
+btnLc79.addEventListener("click", () => verifyAndOpenGame('lc79'));
+btnXd88.addEventListener("click", () => verifyAndOpenGame('xd88'));
+
+function togglePanel(){
+    if(toolPanel.style.display === "none" || toolPanel.getAttribute('aria-hidden') === 'true'){
+        toolPanel.style.display = "block";
+        toolPanel.setAttribute('aria-hidden','false');
+        toggleBtn.style.display = "none";
+        setPanelKeyInfo();
+    } else {
+        toolPanel.style.display = "none";
+        toolPanel.setAttribute('aria-hidden','true');
+        toggleBtn.style.display = "block";
+    }
+}
+
+function setPanelKeyInfo(){
+    if(!currentKey) { expireBadge.innerText = "Key: --"; return; }
+    fetchKeyInfoFromServer(currentKey).then(info=>{
+        if(info && info.expire){
+            startExpireCountdown(info.expire);
+        } else {
+            expireBadge.innerText = "Key: (no expire)";
+        }
+    }).catch(()=>{ expireBadge.innerText = "Key: --"; });
+}
+
+document.querySelector(".close-btn").addEventListener("click", ()=> { togglePanel(); });
+
+const GOI_Y_NGUONG = [ [90, "Rất tự tin đặt"], [70, "Nên đặt"], [60, "Cân nhắc"] ];
+function goiYDat(du_doan, percent, chenh) {
+    if(du_doan === "Không rõ") return "Bỏ qua";
+    for (let i = 0; i < GOI_Y_NGUONG.length; i++) {
+        const [threshold, message] = GOI_Y_NGUONG[i];
+        if (percent >= threshold) {
+            if (percent < 70) return `${message} (vì tỷ lệ chưa cao hoặc chênh lệch nhỏ)`;
+            return message;
+        }
+    }
+    return "Bỏ qua";
+}
+
+function duDoanTuXucXac(dices) {
+    if (!dices || !Array.isArray(dices) || dices.length !== 3) return ["Không rõ", null];
+    const tong = Number(dices[0]) + Number(dices[1]) + Number(dices[2]);
+    if (tong >= 11 && tong <= 17) return ["Tài", tong];
+    if (tong >= 4 && tong <= 10) return ["Xỉu", tong];
+    return ["Không rõ", tong];
+}
+
+function duDoanTongHop(kq_chuoi, xuc_xac) {
+    let kq_xx = "Không rõ", tong_xx = null;
+    if (xuc_xac && Array.isArray(xuc_xac) && xuc_xac.length === 3) {
+        const tmp = duDoanTuXucXac(xuc_xac);
+        kq_xx = tmp[0]; tong_xx = tmp[1];
+    }
+    let ket_qua;
+    if (kq_chuoi === kq_xx && kq_chuoi !== "Không rõ") ket_qua = kq_chuoi;
+    else if (kq_chuoi !== "Không rõ" && (kq_xx === "Không rõ" || !kq_xx)) ket_qua = kq_chuoi;
+    else if (kq_chuoi === "Không rõ" && kq_xx !== "Không rõ") ket_qua = kq_xx;
+    else ket_qua = "Không rõ";
+    return { ket_qua, kq_xx, tong_xx };
+}
+
+function getMlsClass(kq) {
+    if(kq === "Tài" || kq === "T") return "color-tai";
+    if(kq === "Xỉu" || kq === "X") return "color-xiu";
+    return "";
+}
+
+function extractListFromApiResponse(data) {
+    if (!data) return [];
+    if (Array.isArray(data.list)) return data.list;
+    if (Array.isArray(data.data)) return data.data;
+    if (Array.isArray(data.items)) return data.items;
+    if (Array.isArray(data.lists)) return data.lists;
+    if (Array.isArray(data)) return data; 
+    if (data.data && Array.isArray(data.data.list)) return data.data.list;
+    return [];
+}
+
+function extractResultFromItem(item) {
+    if (!item) return null;
+    if ('BetSide' in item) {
+        return item.BetSide === 0 ? 'T' : 'X';
+    }
+    const keys = ['resultTruyenThong','result','resultText','result_truyen_thong','result_truyen','ketqua','kq'];
+    for (const k of keys) {
+        if (k in item && item[k] !== undefined && item[k] !== null) {
+            const v = String(item[k]).toUpperCase();
+            if (v.includes('TAI') || v === 'T' || v === 'TÀI' || v === 'TA') return 'T';
+            if (v.includes('XIU') || v === 'X' || v === 'XỈU' || v === 'XI') return 'X';
+        }
+    }
+    const dices = extractDicesFromItem(item);
+    if (Array.isArray(dices) && dices.length === 3) {
+        const sum = Number(dices[0]) + Number(dices[1]) + Number(dices[2]);
+        if (!isNaN(sum)) {
+            if (sum >= 11 && sum <= 17) return 'T';
+            if (sum >= 4 && sum <= 10) return 'X';
+        }
+    }
+    if ('point' in item) {
+        const p = Number(item.point);
+        if (!isNaN(p)) {
+            if (p >= 11 && p <= 17) return 'T';
+            if (p >= 4 && p <= 10) return 'X';
+        }
+    }
+    return null;
+}
+
+function extractDicesFromItem(item) {
+    if (!item) return null;
+    if ('FirstDice' in item && 'SecondDice' in item && 'ThirdDice' in item) {
+        return [Number(item.FirstDice), Number(item.SecondDice), Number(item.ThirdDice)];
+    }
+    const keys = ['dices','dice','xuc_xac','xucsac','diceValue','dice_values','d'];
+    for (const k of keys) {
+        if (k in item && Array.isArray(item[k]) && item[k].length === 3) return item[k];
+        if (k in item && typeof item[k] === 'string') {
+            const parts = item[k].split(/[^0-9]+/).filter(Boolean).map(Number);
+            if (parts.length === 3) return parts;
+        }
+    }
+    if (item.detail && Array.isArray(item.detail.dices)) return item.detail.dices;
+    return null;
+}
+
+function invertKQ(k){
+    if(!k) return k;
+    if(k === 'Tài' || k === 'T' || k === 'TAI' ) return 'Xỉu';
+    if(k === 'Xỉu' || k === 'X' || k === 'XIU') return 'Tài';
+    return k;
+}
+
+// BẢN FIX MẠNH NHẤT: BỎ CUSTOM HEADER (Tránh lỗi Preflight CORS) VÀ THÊM ANTI-CACHE TUYỆT ĐỐI
+async function fetchWithProxy(url) {
+    // Thêm CẢ mili-giây LẪN số random để đảm bảo 1 tỷ % URL này là mới tinh chưa từng được Cache
+    const timestamp = new Date().getTime();
+    const bustedUrl = url + (url.includes('?') ? '&' : '?') + 'nocache=' + timestamp + '&rnd=' + Math.random();
+
+    // 1. API AllOrigins chế độ GET JSON (Lọc CORS chuẩn nhất, không cần Header)
+    try {
+        let proxy1Url = `https://api.allorigins.win/get?url=${encodeURIComponent(bustedUrl)}&disableCache=true`;
+        let res1 = await fetch(proxy1Url); 
+        if(res1.ok) {
+            let j1 = await res1.json();
+            if(j1 && j1.contents) return new Response(j1.contents);
+        }
+    } catch(e) {}
+
+    // 2. Corsproxy.io
+    try {
+        let proxy2Url = `https://corsproxy.io/?${encodeURIComponent(bustedUrl)}`;
+        let res2 = await fetch(proxy2Url);
+        if(res2.ok) return res2;
+    } catch(e) {}
+    
+    // 3. CodeTabs
+    try {
+        let proxy3Url = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(bustedUrl)}`;
+        let res3 = await fetch(proxy3Url);
+        if(res3.ok) return res3;
+    } catch(e) {}
+
+    // 4. Thử Gọi Trực Tiếp (Nếu trình duyệt cho phép)
+    try {
+        let resDirect = await fetch(bustedUrl);
+        if(resDirect.ok) return resDirect;
+    } catch(e) {}
+
+    throw new Error("Tất cả kết nối Proxy đều bị chặn. Vui lòng thử lại sau.");
+}
+
+// XÓA DỮ LIỆU SO SÁNH CŨ KHI THAY ĐỔI LOẠI BÀN (Bàn thường <-> MD5)
+document.getElementById('api-source-select').addEventListener('change', () => {
+    window.lastDataString = "";
+    document.getElementById("btn-auto").innerHTML = "🔄 ĐANG CHUYỂN BÀN...";
+    setTimeout(fetchApiAndPredict, 500);
+});
+
+async function fetchApiAndPredict() {
+    const resultBox = document.getElementById("result-box");
+    const btn = document.getElementById("btn-auto");
+    const seqSelect = document.getElementById("seq-length-select");
+    const apiSelect = document.getElementById("api-source-select");
+
+    btn.innerHTML = "⏳ ĐANG XỬ LÝ...";
+    btn.style.opacity = "0.7";
+
+    const source = (apiSelect && apiSelect.value) ? apiSelect.value : 'normal';
+    let API_URL = "";
+
+    if (selectedGame === 'lc79') {
+        const LC79_NORMAL = "https://wtx.tele68.com/v1/tx/sessions?cp=R&cl=R&pf=web&at=4479e6332082ebf7f206ae3cfcd3ff5e";
+        const LC79_MD5 = "https://wtxmd52.tele68.com/v1/txmd5/sessions?cp=R&cl=R&pf=web&at=93b3e543d609af0351163f3ff9a2c495";
+        API_URL = (source === 'md5') ? LC79_MD5 : LC79_NORMAL;
+    } else if (selectedGame === 'xd88') {
+        const XD88_NORMAL = "https://taixiu.system32-cloudfare-356783752985678522.monster/api/luckydice/GetSoiCau";
+        const XD88_MD5 = "https://taixiumd5.system32-cloudfare-356783752985678522.monster/api/md5luckydice/GetSoiCau";
+        API_URL = (source === 'md5') ? XD88_MD5 : XD88_NORMAL;
+    }
+
+    try {
+        let response = await fetchWithProxy(API_URL);
+        let data = await response.json();
+        let list = extractListFromApiResponse(data);
+
+        if (!list || list.length === 0) {
+            showToast("Không tìm thấy dữ liệu API mới!", "error");
+            btn.innerHTML = "🔄 CẬP NHẬT DỮ LIỆU CẦU";
+            btn.style.opacity = "1";
+            return;
+        }
+
+        let selectedLen = parseInt(seqSelect.value, 10) || 13;
+        let ketQuaTuApi = [];
+        let maxItems = Math.min(selectedLen, list.length);
+        
+        for (let i = 0; i < maxItems; i++) {
+            let item = list[i];
+            let r = extractResultFromItem(item);
+            if (r === 'T') ketQuaTuApi.push("T");
+            else if (r === 'X') ketQuaTuApi.push("X");
+            else {
+                const dices = extractDicesFromItem(item);
+                if (Array.isArray(dices) && dices.length === 3) {
+                    const s = Number(dices[0]) + Number(dices[1]) + Number(dices[2]);
+                    if (!isNaN(s)) {
+                        if (s >= 11) ketQuaTuApi.push("T");
+                        else ketQuaTuApi.push("X");
+                    } else {
+                        ketQuaTuApi.push("X");
+                    }
+                } else {
+                    ketQuaTuApi.push("X");
+                }
+            }
+        }
+
+        let chuoiN = ketQuaTuApi.reverse();
+        const firstItem = list[0];
+        const lastDice = extractDicesFromItem(firstItem) || [];
+
+        let currentDataString = chuoiN.join("") + "-" + (lastDice ? lastDice.join("") : "");
+        if (window.lastDataString === currentDataString) {
+            showToast("Đang chờ dữ liệu mới...", "info"); 
+            btn.innerHTML = "🔄 CẬP NHẬT DỮ LIỆU CẦU";
+            btn.style.opacity = "1";
+            return; 
+        } else {
+            if (window.lastDataString !== undefined && window.lastDataString !== "") {
+                showToast("Phát hiện cầu mới! Đang cập nhật...", "success");
+            }
+            window.lastDataString = currentDataString;
+        }
+
+        const invertChain = invertChainCheckbox() && invertChainCheckbox().checked;
+        const invertFinal = invertFinalCheckbox() && invertFinalCheckbox().checked;
+        const skipDice = skipDiceCheckbox() && skipDiceCheckbox().checked;
+        const hideSuggestion = hideSuggestionCheckbox() && hideSuggestionCheckbox().checked;
+        const annotation = annotationInput() ? annotationInput().value.trim() : '';
+
+        let chainForAnalysis = chuoiN.slice();
+        if(invertChain){
+            chainForAnalysis = chainForAnalysis.map(c => c === 'T' ? 'X' : (c === 'X' ? 'T' : c));
+        }
+
+        let kq_chuoi = "Không rõ", pt = 50, px = 50, cau_bip = null;
+        try {
+            const predictResp = await fetch(KEY_SERVER_URL + "/predict", {
+                method: "POST",
+                headers: {"Content-Type":"application/json"},
+                body: JSON.stringify({ 
+                    chuoi: chainForAnalysis, 
+                    key: currentKey, 
+                    hwid: getHWID() 
+                })
+            });
+            const predictData = await predictResp.json();
+            
+            if (predictData && predictData.success) {
+                pt = Number(predictData.ptTai);
+                px = Number(predictData.ptXiu);
+                kq_chuoi = predictData.ket_qua || kq_chuoi;
+                cau_bip = predictData.cau_bip || null;
+            } else {
+                showToast(`Lỗi từ server: ${predictData.message || 'Thiết bị sai.'}`, 'error');
+                btn.innerHTML = "🔄 CẬP NHẬT DỮ LIỆU CẦU";
+                btn.style.opacity = "1";
+                return;
+            }
+        } catch (e) {
+            showToast("Lỗi kết nối Server Dự đoán.", "error");
+            btn.innerHTML = "🔄 CẬP NHẬT DỮ LIỆU CẦU";
+            btn.style.opacity = "1";
+            return;
+        }
+
+        const invertAllActive = btnInvertAll.classList.contains('active');
+        const invertChainBtnActive = btnInvertChain.classList.contains('active');
+
+        if(invertChainBtnActive && !invertChain) {
+            kq_chuoi = invertKQ(kq_chuoi);
+            let temp = pt; pt = px; px = temp;
+        }
+
+        let ketQuaObj = duDoanTongHop(kq_chuoi, skipDice ? null : lastDice);
+        let kq_xx = ketQuaObj.kq_xx;
+        let tong_xx = ketQuaObj.tong_xx;
+        let ket_qua = ketQuaObj.ket_qua;
+
+        if(skipDice){
+            if(kq_chuoi !== 'Không rõ') ket_qua = kq_chuoi;
+            else ket_qua = 'Không rõ';
+        }
+
+        if(invertFinal) ket_qua = invertKQ(ket_qua);
+        if(invertAllActive) ket_qua = invertKQ(ket_qua);
+
+        const chenh = Math.abs(pt - px);
+        const goi_y = goiYDat(ket_qua, Math.max(pt, px), chenh);
+
+        const soundEnabled = document.getElementById('sound-alert-checkbox').checked;
+        if (soundEnabled) {
+            if (cau_bip) {
+                playBeep('warn');
+            } else if (Math.max(pt, px) >= 80) { 
+                playBeep('high');
+            }
+        }
+
+        resultBox.innerHTML = `
+            <div class="info-row hide-on-compact" style="min-width:140px;">
+                <div style="color:#aaa; font-size:12px; margin-bottom:4px;">Nguồn: <b>${source === 'md5' ? 'Bàn MD5' : 'Bàn thường'}</b> — Chuỗi ${chuoiN.length} ván:</div>
+                <div class="seq-text">${chuoiN.join("")}</div>
+            </div>
+
+            <div class="info-row hide-on-compact" style="min-width:140px;">
+                <div style="color:#aaa; font-size:12px; margin-bottom:4px;">Kết quả phiên trước:</div>
+                <div>🎲 Xúc xắc: <b>${lastDice.length ? lastDice.join(" - ") : "?"}</b> (Tổng <b class="${getMlsClass(kq_xx)}">${tong_xx !== null ? tong_xx : "?"}</b>)</div>
+            </div>
+
+            <div style="min-width:200px; margin-bottom: 6px;">
+                <div class="bar-container">
+                    <div class="bar-tai" style="width: ${pt}%">${pt}%</div>
+                    <div class="bar-xiu" style="width: ${px}%">${px}%</div>
+                </div>
+            </div>
+
+            <div class="pred-grid" style="min-width:200px;">
+                <div class="pred-box">
+                    <div class="pred-title">📊 DỰ ĐOÁN CHUỖI</div>
+                    <div class="pred-value ${getMlsClass(kq_chuoi)}">${kq_chuoi}</div>
+                </div>
+                <div class="pred-box">
+                    <div class="pred-title">🎲 DỰ ĐOÁN XÚC XẮC</div>
+                    <div class="pred-value ${getMlsClass(kq_xx)}">${kq_xx}</div>
+                </div>
+                <div class="pred-box pred-final">
+                    <div class="pred-title">🔥 CHỐT KẾT QUẢ TỔNG HỢP 🔥</div>
+                    <div class="pred-value ${getMlsClass(ket_qua)}">${ket_qua}</div>
+                </div>
+            </div>
+
+            <div class="hint-box hide-on-compact" style="min-width:160px;">
+                💡 <b>Gợi ý đánh:</b> <span style="color:#ffd700;">${hideSuggestion ? '— (bị ẩn bởi người dùng)' : goi_y}</span>
+            </div>
+
+            <div class="hide-on-compact" style="margin-top:8px; font-size:12px; color:#cfcfcf;">
+                <div><b>Tùy chọn đang bật:</b> ${invertChain ? 'Bẻ chuỗi; ' : ''}${invertFinal ? 'Bẻ cuối; ' : ''}${skipDice ? 'Bỏ xúc xắc; ' : ''}${btnInvertAll.classList.contains('active') ? 'Đảo toàn bộ bằng nút; ' : ''}${btnInvertChain.classList.contains('active') ? 'Đảo chuỗi bằng nút; ' : ''}</div>
+                <div style="margin-top:6px;"><b>Chú thích:</b> ${annotation ? annotation : '—'}</div>
+            </div>
+        `;
+
+        if (cau_bip) {
+            const warnHtml = document.createElement('div');
+            warnHtml.className = 'info-row warn-box';
+            warnHtml.style.border = '1px solid #ffb3b3';
+            let more = '';
+            if (cau_bip === "Cầu bệt dài bất thường") more = "Gợi ý: Đặt ngược lại hoặc cân nhắc không đặt.";
+            else if (cau_bip === "Cầu nhử đảo 1-1-2") more = "Gợi ý: Đặt theo chu kỳ đảo hoặc bỏ qua.";
+            else if (cau_bip === "Cầu bẫy lặp đều") more = "Gợi ý: Đặt theo xu hướng mới hoặc chờ thêm kết quả.";
+            warnHtml.innerHTML = `<div style="color:#ffdddd; font-weight:bold;">⚠️ CẢNH BÁO: ${cau_bip}</div><div class="hide-on-compact" style="color:#ffd9b3; margin-top:6px;">${more}</div>`;
+            resultBox.prepend(warnHtml);
+        }
+
+    } catch (error) {
+        showToast("⚠️ Lỗi kết nối API hoặc CORS.", "error");
+    } finally {
+        btn.innerHTML = "🔄 CẬP NHẬT DỮ LIỆU CẦU";
+        btn.style.opacity = "1";
+    }
+}
+
+btnInvertAll.addEventListener('click', ()=>{ btnInvertAll.classList.toggle('active'); });
+btnInvertChain.addEventListener('click', ()=>{ btnInvertChain.classList.toggle('active'); });
+
+const btnAdvancedToggle = document.getElementById('btn-advanced-toggle');
+const advancedSection = document.getElementById('advanced-section');
+if(btnAdvancedToggle && advancedSection){
+    btnAdvancedToggle.addEventListener('click', ()=>{
+        const isHidden = advancedSection.style.display === 'none';
+        advancedSection.style.display = isHidden ? 'block' : 'none';
+        btnAdvancedToggle.textContent = isHidden ? '⚙ Ẩn nâng cao' : '⚙ Nâng cao';
+    });
+}
+
+const panel = document.getElementById("tool-panel");
+const header = document.getElementById("panel-header");
+
+function toggleCompactMode() { panel.classList.toggle('compact-mode'); }
+function toggleOrientation() {
+    panel.classList.toggle('horizontal');
+    const btn = document.getElementById('orientBtn');
+    if (panel.classList.contains('horizontal')) btn.title = "Chế độ ngang";
+    else btn.title = "Chế độ dọc";
+}
+
+function changeScale(delta) {
+    let current = parseFloat(getComputedStyle(panel).getPropertyValue('--panel-scale')) || 1;
+    let next = Math.min(2, Math.max(0.6, +(current + delta).toFixed(2)));
+    panel.style.setProperty('--panel-scale', next);
+}
+
+function resetScale() { panel.style.setProperty('--panel-scale', 1); }
+
+let isDragging=false, offsetX=0, offsetY=0;
+header.addEventListener('mousedown',(e)=>{ isDragging=true; const rect=panel.getBoundingClientRect(); offsetX = e.clientX - rect.left; offsetY = e.clientY - rect.top; panel.style.right='auto'; });
+document.addEventListener('mousemove',(e)=>{ if(!isDragging) return; panel.style.left = (e.clientX - offsetX) + 'px'; panel.style.top = (e.clientY - offsetY) + 'px'; });
+document.addEventListener('mouseup',()=>{ isDragging=false; });
+header.addEventListener('touchstart',(ev)=>{ const t=ev.touches[0]; isDragging=true; const rect=panel.getBoundingClientRect(); offsetX=t.clientX-rect.left; offsetY=t.clientY-rect.top; panel.style.right='auto'; }, {passive:true});
+document.addEventListener('touchmove',(ev)=>{ if(!isDragging) return; const t=ev.touches[0]; panel.style.left=(t.clientX-offsetX)+'px'; panel.style.top=(t.clientY-offsetY)+'px'; }, {passive:true});
+document.addEventListener('touchend',()=>{ isDragging=false; });
+
+window.addEventListener('load', ()=> {
+    show(entryOverlay);
+    hide(dashOverlay);
+    hide(toolPanel);
+    hide(gameFrame);
+    toggleBtn.style.display='none';
+});
+
+window.addEventListener('resize', ()=> { 
+    if(toolPanel.style.display === "none" || toolPanel.getAttribute('aria-hidden') === 'true'){
+        toggleBtn.style.display = 'block';
+    } else {
+        toggleBtn.style.display = 'none';
+    }
+});
+</script>
+</body>
+</html>
